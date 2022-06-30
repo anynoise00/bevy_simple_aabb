@@ -49,18 +49,3 @@ pub fn move_entities(
         transform.translation.y = ev.position.y;
     }
 }
-
-pub fn debug_positions(
-    movables: Query<(Entity, &Transform), (With<Body>, With<Movable>)>,
-    statics: Query<(Entity, &Transform), (With<Body>, Without<Movable>)>, 
-) {
-    for (ent, trans) in movables.iter() {
-        println!("MOVABLE entity {} is at position {}", ent.id(), trans.translation);
-    }
-    
-    for (ent, trans) in statics.iter() {
-        println!("STATIC entity {} is at position {}", ent.id(), trans.translation);
-    }
-
-    println!();
-}
