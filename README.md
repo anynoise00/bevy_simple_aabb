@@ -4,8 +4,8 @@
 Simple AABB collision detection and resolution plugin for <a href="https://github.com/bevyengine/bevy">Bevy Engine</a>.
 
 ## Features
-- [ ] AABB Collision detection and resolution
-- [ ] Bodies (Movable and Static)
+- [X] AABB Collision detection and resolution
+- [X] Bodies (Movable and Static)
 - [ ] Tunneling prevention
 - [ ] Raycasting
 - [ ] Contact report
@@ -15,4 +15,4 @@ Simple AABB collision detection and resolution plugin for <a href="https://githu
 
 bevy | bevy_simple_collision
 --- | ---
-0.7.0 | 0.0.1
+0.7.0 | 0.1.0
