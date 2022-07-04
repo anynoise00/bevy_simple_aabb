@@ -14,6 +14,7 @@ pub struct BroadEvent {
 
 struct PossibleCollisions {
     kin: Entity,
+    sta: Entity,
 }
 
 pub fn broadphase(
