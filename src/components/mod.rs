@@ -1,22 +1,15 @@
 pub mod rectangle;
-pub mod movable;
 
-use bevy::prelude::{ Bundle, Component };
-pub use movable::*;
+use bevy::prelude::{ Component, Vec2 };
 pub use rectangle::*;
 
 #[derive(Component, Default)]
-pub struct Body;
-
-#[derive(Bundle, Default)]
-pub struct MovableBundle {
-    pub body: Body,
-    pub movable: Movable,
-    pub rectangle: Rectangle,
+pub struct KinematicBody {
+    pub shape: Rectangle,
+    pub motion: Vec2,
 }
 
-#[derive(Bundle, Default)]
-pub struct StaticBundle {
-    pub body: Body,
-    pub rectangle: Rectangle,
+#[derive(Component, Default)]
+pub struct StaticBody {
+    pub shape: Rectangle,
 }

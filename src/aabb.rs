@@ -8,7 +8,7 @@ pub struct Aabb {
 }
 
 impl Aabb {
-    pub fn new(rectangle: &Rectangle, transform: &Transform) -> Self {
+    pub fn new(rectangle: Rectangle, transform: &Transform) -> Self {
         let mut aabb = Self {
             extents: rectangle.size().max(Vec2::ZERO) / 2.0,
             position: Vec2::ZERO,
@@ -24,14 +24,7 @@ impl Aabb {
         (self.position - self.extents, self.position + self.extents)
     }
 
-    pub fn expand(mut self, value: Vec2) -> Self {
-        self.extents += value;
-        self.extents = self.extents.max(Vec2::ZERO);
-
-        self
-    }
-
-    pub fn collide_with(&self, other: Aabb) -> bool {
+    pub fn is_overlapping(&self, other: Aabb) -> bool {
         let (a_min, a_max) = self.min_max();
         let (b_min, b_max) = other.min_max();
 
@@ -62,6 +55,20 @@ impl Aabb {
         }
 
         overlap
+    }
+
+    pub fn expand(mut self, value: Vec2) -> Self {
+        self.extents += value;
+        self.extents = self.extents.max(Vec2::ZERO);
+
+        self
+    }
+
+    pub fn get_broad(mut self, motion: Vec2) -> Self {
+        let half_motion = motion / 2.0;
+        self.expand(half_motion.abs());
+        self.position += half_motion;
+        self
     }
 
     pub fn get_hit_info(&self, other: Aabb, motion: Vec2) -> (f32, Vec2) {
@@ -134,7 +141,7 @@ mod tests {
             position: Vec2::ZERO,
         };
         
-        assert!(a.collide_with(b));
+        assert!(a.is_overlapping(b));
         assert_eq!(a.get_overlap(b), Vec2::new(4.0, 0.0));
     }
 

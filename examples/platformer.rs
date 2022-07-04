@@ -42,8 +42,8 @@ fn spawn_players(mut commands: Commands) {
             },
             ..default()
 		})
-        .insert_bundle(MovableBundle {
-            rectangle: Rectangle::new().with_size(player_size),
+        .insert(KinematicBody {
+            shape: Rectangle::new().with_size(player_size),
             ..default()
         })
         .insert(Player)
@@ -72,9 +72,8 @@ fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
                 transform: Transform::from_translation(current_pos),
                 ..default()
             })
-            .insert_bundle(StaticBundle {
-                rectangle: Rectangle::new().with_size(tile_size),
-                ..default()
+            .insert(StaticBody {
+                shape: Rectangle::new().with_size(tile_size),
             });
 
             current_pos.x += tile_size.x;
@@ -111,10 +110,10 @@ fn gravity(mut q: Query<&mut Velocity>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Movable, &Velocity), With<Player>>,
+    mut players: Query<(&mut KinematicBody, &Velocity), With<Player>>,
 ) {
-	for (mut mov, vel) in players.iter_mut() {
-        mov.motion.x = vel.x;
-        mov.motion.y = vel.y;
+	for (mut body, vel) in players.iter_mut() {
+        body.motion.x = vel.x;
+        body.motion.y = vel.y;
     }
 }
