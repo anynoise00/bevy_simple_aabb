@@ -50,23 +50,39 @@ fn spawn_players(mut commands: Commands) {
 		.insert(Velocity::default());
 }
 
-fn spawn_tiles(mut commands: Commands) {
-    let tile_size = Vec2::splat(140.0);
+fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
+    let window = windows.get_primary().unwrap();
+    let tile_size = Vec2::new(40.0, 40.0);
+    
+    let num_of_h_tiles = (window.width() / tile_size.x).ceil() as i32;
+    
+    let mut current_pos = Vec3::new(-window.width(), -window.height(), 0.0) / 2.0;
+    current_pos.x += tile_size.x / 2.0;
+    current_pos.y += tile_size.y / 2.0;
 
-    commands.spawn()
-    .insert_bundle(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(tile_size),
-            color: Color::DARK_GRAY,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, -240.0, 0.0)),
-        ..default()
-    })
-    .insert_bundle(StaticBundle {
-        rectangle: Rectangle::new().with_size(tile_size),
-        ..default()
-    });
+    for v in 0..4 {
+        for h in 0..num_of_h_tiles {
+            commands.spawn()
+            .insert_bundle(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(tile_size),
+                    color: if (v + h) % 2 == 0 { Color::DARK_GRAY } else { Color::BLACK },
+                    ..default()
+                },
+                transform: Transform::from_translation(current_pos),
+                ..default()
+            })
+            .insert_bundle(StaticBundle {
+                rectangle: Rectangle::new().with_size(tile_size),
+                ..default()
+            });
+
+            current_pos.x += tile_size.x;
+        }
+
+        current_pos.x = (-window.width() + tile_size.x) / 2.0;
+        current_pos.y += tile_size.y;
+    }
 }
 
 fn keyboard_input(

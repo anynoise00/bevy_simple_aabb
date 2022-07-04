@@ -24,6 +24,13 @@ impl Aabb {
         (self.position - self.extents, self.position + self.extents)
     }
 
+    pub fn expand(mut self, value: Vec2) -> Self {
+        self.extents += value;
+        self.extents = self.extents.max(Vec2::ZERO);
+
+        self
+    }
+
     pub fn collide_with(&self, other: Aabb) -> bool {
         let (a_min, a_max) = self.min_max();
         let (b_min, b_max) = other.min_max();
@@ -57,11 +64,56 @@ impl Aabb {
         overlap
     }
 
-    pub fn expand(mut self, value: Vec2) -> Self {
-        self.extents += value;
-        self.extents = self.extents.max(Vec2::ZERO);
+    pub fn get_hit_info(&self, other: Aabb, motion: Vec2) -> (f32, Vec2) {
+        let (a_min, a_max) = self.min_max();
+        let (b_min, b_max) = other.min_max();
 
-        self
+        let mut normal = Vec2::ZERO;
+
+        let mut x_entry = f32::NEG_INFINITY;
+        let mut x_exit = f32::INFINITY;
+        if motion.x > 0.0 {
+            x_entry = (b_min.x - a_max.x) / motion.x;
+            x_exit = (b_max.x - a_min.x) / motion.x;
+            
+            normal.x = -1.0;
+        } else if motion.x < 0.0 {
+            x_entry = (b_max.x - a_min.x) / motion.x;
+            x_exit = (b_min.x - a_max.x) / motion.x;
+            
+            normal.x = 1.0;
+        }
+
+        let mut y_entry = f32::NEG_INFINITY;
+        let mut y_exit = f32::INFINITY;
+        if motion.y > 0.0 {
+            y_entry = (b_min.y - a_max.y) / motion.y;
+            y_exit = (b_max.y - a_min.y) / motion.y;
+            
+            normal.y = -1.0;
+        } else if motion.y < 0.0 {
+            y_entry = (b_max.y - a_min.y) / motion.y;
+            y_exit = (b_min.y - a_max.y) / motion.y;
+            
+            normal.y = 1.0;
+        }
+
+
+        let mut entry_time = 1.0;
+        let exit_time = x_exit.min(y_exit);
+        if x_entry >= y_entry {
+            entry_time = x_entry;
+            normal.y = 0.0;
+        } else if x_entry < y_entry {
+            entry_time = y_entry;
+            normal.x = 0.0;
+        }
+
+        if entry_time > exit_time || entry_time > 1.0 {
+            (1.0, Vec2::ZERO)
+        } else {
+            (entry_time, normal)
+        }
     }
 }
 
@@ -96,5 +148,22 @@ mod tests {
 
         assert_eq!(a.extents, Vec2::splat(3.0));
         assert_eq!(b.extents, Vec2::splat(5.0));
+    }
+
+    #[test]
+    fn test_hit() {
+        let a = Aabb {
+            extents: Vec2::splat(2.0),
+            position: Vec2::new(-3.0, 0.0),
+        };
+
+        let b = Aabb {
+            extents: Vec2::splat(2.0),
+            position: Vec2::new(3.0, 0.0),
+        };
+
+        let hit_info = a.get_hit_info(b, Vec2::new(4.0, 0.0));
+
+        assert_eq!(hit_info, (0.5, Vec2::new(-1.0, 0.0)));
     }
 }
