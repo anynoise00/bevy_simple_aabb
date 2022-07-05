@@ -57,16 +57,9 @@ impl Aabb {
         overlap
     }
 
-    pub fn expand(mut self, value: Vec2) -> Self {
-        self.extents += value;
-        self.extents = self.extents.max(Vec2::ZERO);
-
-        self
-    }
-
     pub fn get_broad(mut self, motion: Vec2) -> Self {
         let half_motion = motion / 2.0;
-        self.expand(half_motion.abs());
+        self.extents += half_motion.abs();
         self.position += half_motion;
         self
     }
@@ -115,6 +108,7 @@ impl Aabb {
             entry_time = y_entry;
             normal.x = 0.0;
         }
+        println!("tx {}     ty {}", x_entry, y_entry);
 
         if entry_time > exit_time || entry_time > 1.0 {
             (1.0, Vec2::ZERO)
