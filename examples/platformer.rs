@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_simple_aabb::prelude::*;
 
 #[derive(Component)]
@@ -13,6 +14,9 @@ struct Velocity {
 fn main() {
     App::new()
 		.add_plugins(DefaultPlugins)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+
 		.add_plugin(PhysicsPlugin)
 
         .add_startup_system(setup)
@@ -52,10 +56,9 @@ fn spawn_players(mut commands: Commands) {
 }
 
 fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
-    const TILEMAP: [[u8; 16]; 10] = [
+    const TILEMAP: [[u8; 16]; 9] = [
         [1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1],
         [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
