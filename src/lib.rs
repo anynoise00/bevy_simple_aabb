@@ -1,4 +1,3 @@
-pub mod aabb;
 pub mod components;
 pub mod collision;
 pub mod plugin;

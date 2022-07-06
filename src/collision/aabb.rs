@@ -1,5 +1,5 @@
 use bevy::prelude::{ Vec2, Transform };
-use crate::components::Rectangle;
+use crate::{components::Rectangle, collision::{ Hit, Ray, Raycast }};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Aabb {
@@ -8,16 +8,27 @@ pub struct Aabb {
 }
 
 impl Aabb {
-    pub fn new(rectangle: Rectangle, transform: &Transform) -> Self {
-        let mut aabb = Self {
-            extents: rectangle.size().max(Vec2::ZERO) / 2.0,
-            position: Vec2::ZERO,
-        };
+    pub fn new(extents: Vec2, position: Vec2) -> Self {
+        Self {
+            extents: extents.abs(),
+            position,
+        }
+    }
 
-        aabb.position.x = transform.translation.x;
-        aabb.position.y = transform.translation.y;
+    pub fn from_rectangle(rectangle: Rectangle, transform: &Transform) -> Self {
+        Self::new(rectangle.size() / 2.0, Vec2::new(transform.translation.x, transform.translation.y))
+    }
 
-        aabb
+    pub fn from_ray(ray: &Ray, transform: &Transform) -> Self {
+        let half_dir = ray.direction / 2.0;
+        Self::new(half_dir, Vec2::new(transform.translation.x, transform.translation.y) + half_dir)
+    }
+
+    pub fn minkowski_diff(mut self, other: Aabb) -> Self {
+        self.extents += other.extents;
+        self.position -= other.position;
+
+        self
     }
 
     pub fn min_max(&self) -> (Vec2, Vec2) {
@@ -27,11 +38,11 @@ impl Aabb {
     pub fn is_overlapping(&self, other: Aabb) -> bool {
         let (a_min, a_max) = self.min_max();
         let (b_min, b_max) = other.min_max();
-
+        
         a_min.x < b_max.x
-            && a_max.x > b_min.x
-            && a_min.y < b_max.y
-            && a_max.y > b_min.y
+        && a_max.x > b_min.x
+        && a_min.y < b_max.y
+        && a_max.y > b_min.y
     }
 
     pub fn get_overlap(&self, other: Aabb) -> Vec2 {
@@ -108,7 +119,6 @@ impl Aabb {
             entry_time = y_entry;
             normal.x = 0.0;
         }
-        println!("tx {}     ty {}", x_entry, y_entry);
 
         if entry_time > exit_time || entry_time > 1.0 {
             (1.0, Vec2::ZERO)
@@ -116,52 +126,33 @@ impl Aabb {
             (entry_time, normal)
         }
     }
+
+    pub fn sweep_test(self, other: Aabb, motion: Vec2) -> Option<Hit> {
+        let minkowski = other.minkowski_diff(self);
+        let ray = Raycast::new(motion, Vec2::ZERO);
+
+        ray.intersect_aabb(minkowski)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::aabb::Aabb;
+    use crate::collision::Aabb;
     use bevy::math::Vec2;
     
     #[test]
     fn test_overlap() {
-        let a = Aabb {
-            extents: Vec2::splat(3.0),
-            position: Vec2::new(1.0, 2.0),
-        };
-        
-        let b = Aabb {
-            extents: Vec2::new(2.0, 4.0),
-            position: Vec2::ZERO,
-        };
+        let a = Aabb::new(Vec2::splat(3.0), Vec2::new(1.0, 2.0));
+        let b = Aabb::new(Vec2::new(2.0, 4.0), Vec2::ZERO);
         
         assert!(a.is_overlapping(b));
         assert_eq!(a.get_overlap(b), Vec2::new(4.0, 0.0));
     }
 
     #[test]
-    fn test_expand() {
-        let a = Aabb {
-            extents: Vec2::splat(3.0),
-            position: Vec2::ZERO,
-        };
-        let b = a.expand(Vec2::splat(2.0));
-
-        assert_eq!(a.extents, Vec2::splat(3.0));
-        assert_eq!(b.extents, Vec2::splat(5.0));
-    }
-
-    #[test]
     fn test_hit() {
-        let a = Aabb {
-            extents: Vec2::splat(2.0),
-            position: Vec2::new(-3.0, 0.0),
-        };
-
-        let b = Aabb {
-            extents: Vec2::splat(2.0),
-            position: Vec2::new(3.0, 0.0),
-        };
+        let a = Aabb::new(Vec2::splat(2.0), Vec2::new(-3.0, 0.0));
+        let b = Aabb::new(Vec2::splat(2.0), Vec2::new(3.0, 0.0));
 
         let hit_info = a.get_hit_info(b, Vec2::new(4.0, 0.0));
 

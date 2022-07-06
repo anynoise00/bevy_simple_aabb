@@ -13,6 +13,7 @@ impl Plugin for PhysicsPlugin {
             .add_system(broadphase)
             .add_system(narrowphase.after(broadphase))
             .add_system(solve.after(narrowphase))
-            .add_system(move_entities.after(solve));
+            .add_system(move_entities.after(solve))
+            .add_system(raycasts.after(move_entities));
     }
 }

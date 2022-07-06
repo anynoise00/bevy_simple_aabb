@@ -1,5 +1,12 @@
+pub mod aabb;
+pub mod raycast;
+
+use std::cmp::Ordering;
+
+pub use aabb::*;
+pub use raycast::*;
 use bevy::prelude::*;
-use crate::{components::*, aabb::Aabb};
+use crate::components::*;
 
 pub struct BroadEvent {
     pub entity: Entity,
@@ -11,8 +18,8 @@ pub struct BroadEvent {
 pub struct NarrowEvent {
     pub entity: Entity,
 
-    pub kinematics: Vec<(Entity, f32)>,
-    pub statics: Vec<(Entity, f32)>,
+    pub kinematics: Vec<(Entity, f32, f32)>,
+    pub statics: Vec<(Entity, f32, f32)>,
 }
 
 pub struct MoveEvent {
@@ -27,12 +34,12 @@ pub fn broadphase(
     mut ev_broad: EventWriter<BroadEvent>,
 ) {
     for (a_ent, a_body, a_trans) in kinematics.iter() {
-        let mut kin = Vec::<Entity>::new();
+        let kin = Vec::<Entity>::new();
         let mut sta = Vec::<Entity>::new();
-        let a_box = Aabb::new(a_body.shape, a_trans).get_broad(a_body.motion);
+        let a_box = Aabb::from_rectangle(a_body.shape, a_trans).get_broad(a_body.motion);
 
         for (b_ent, b_body, b_trans) in statics.iter() {
-            let b_box = Aabb::new(b_body.shape, b_trans);
+            let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
             if a_box.is_overlapping(b_box) {
                 sta.push(b_ent);
@@ -59,9 +66,9 @@ pub fn narrowphase(
             Ok((body, trans)) => (body, trans),
             Err(_) => continue,
         };
-        let a_box = Aabb::new(a_body.shape, a_trans);
+        let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
 
-        let mut sta_col: Vec<(Entity, f32,)> = Vec::new();
+        let mut sta_col: Vec<(Entity, f32, f32)> = Vec::new();
         for b_ent in ev.statics.iter() {
             let b_ent = *b_ent;
 
@@ -69,18 +76,24 @@ pub fn narrowphase(
                 Ok((body, trans)) => (body, trans),
                 Err(_) => continue,
             };
-            let b_box = Aabb::new(b_body.shape, b_trans);
+            let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
-            let (time, _) = a_box.get_hit_info(b_box, a_body.motion);
-            if time < 1.0 {
-                sta_col.push((b_ent, time));
-            }
+            match a_box.sweep_test(b_box, a_body.motion) {
+                Some(hit) => {
+                    if hit.near_time <= 1.0 { sta_col.push((b_ent, hit.near_time, hit.far_time)) };
+                },
+                None => continue,
+            };
         }
 
-        println!("{:?}", sta_col);
-        sta_col.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        println!("{:?}", sta_col);
-        println!();
+        sta_col.sort_by(|a, b| {
+            let near = a.1.partial_cmp(&b.1).unwrap();
+            if near == Ordering::Equal {
+                let far = a.2.partial_cmp(&b.2).unwrap();
+                return far
+            }
+            near
+        });
 
         ev_narrow.send(NarrowEvent {
             entity: ev.entity,
@@ -102,8 +115,8 @@ pub fn solve(
             Ok((body, trans)) => (body, trans),
             Err(_) => continue,
         };
-        let mut a_box = Aabb::new(a_body.shape, a_trans);
-        a_box.position += a_body.motion;
+        let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
+        let mut a_motion = a_body.motion;
 
         for b_ent in ev.statics.iter() {
             let b_ent = *b_ent;
@@ -112,17 +125,20 @@ pub fn solve(
                 Ok((body, trans)) => (body, trans),
                 Err(_) => continue,
             };
-            let b_box = Aabb::new(b_body.shape, b_trans);
+            let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
-            if a_box.is_overlapping(b_box) {
-                let overlap = a_box.get_overlap(b_box);
-                a_box.position += overlap;
+            if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
+            match a_box.sweep_test(b_box, a_motion) {
+                Some(hit) => {
+                    a_motion += a_motion.abs() * hit.normal * (1.0 - hit.near_time);
+                },
+                None => continue,
             }
         }
 
         ev_move.send(MoveEvent {
             entity: ev.entity,
-            position: a_box.position,
+            position: a_box.position + a_motion,
         })
     }
 }
@@ -142,5 +158,30 @@ pub fn move_entities(
 
         transform.translation.x = ev.position.x;
         transform.translation.y = ev.position.y;
+    }
+}
+
+pub fn raycasts(
+    mut rays: Query<(&mut Ray, &Transform)>,
+    statics: Query<(Entity, &StaticBody, &Transform)>,
+) {
+    for (mut a_ray, a_trans) in rays.iter_mut() {
+        let a_box = Aabb::from_ray(&a_ray, a_trans);
+        let raycast = Raycast::from_ray(&a_ray, a_trans);
+        a_ray.hits.clear();
+
+        for (b_ent, b_body, b_trans) in statics.iter() {
+            let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+
+            if a_box.is_overlapping(b_box) {
+                match raycast.intersect_aabb(b_box) {
+                    Some(hit) => {
+                        a_ray.hits.push((b_ent, hit));
+                    },
+                    None => continue,
+                }
+            }
+        }
+
     }
 }

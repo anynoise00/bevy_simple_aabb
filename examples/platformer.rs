@@ -20,6 +20,7 @@ fn main() {
         .add_startup_system(spawn_tiles)
 
 		.add_system(keyboard_input)
+        .add_system(ray_look_at_mouse)
 		.add_system(gravity.after(keyboard_input))
 		.add_system(move_players.after(keyboard_input))
 
@@ -51,36 +52,56 @@ fn spawn_players(mut commands: Commands) {
 }
 
 fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
-    let window = windows.get_primary().unwrap();
-    let tile_size = Vec2::new(40.0, 40.0);
-    
-    let num_of_h_tiles = (window.width() / tile_size.x).ceil() as i32;
-    
-    let mut current_pos = Vec3::new(-window.width(), -window.height(), 0.0) / 2.0;
-    current_pos.x += tile_size.x / 2.0;
-    current_pos.y += tile_size.y / 2.0;
+    const TILEMAP: [[u8; 16]; 10] = [
+        [1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1],
+        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+        [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    ];
 
-    for v in 0..4 {
+    let window = windows.get_primary().unwrap();
+    
+    let num_of_v_tiles = TILEMAP.len();
+    let num_of_h_tiles = TILEMAP[0].len();
+    let tile_size = Vec2::new(
+        (window.width() / TILEMAP[0].len() as f32).ceil(),
+        (window.height() / TILEMAP.len() as f32).ceil(),
+    );
+    
+    let mut current_pos = Vec3::new(-window.width(), window.height(), 0.0) / 2.0;
+    current_pos.x += tile_size.x / 2.0;
+    current_pos.y -= tile_size.y / 2.0;
+
+    for v in 0..num_of_v_tiles {
         for h in 0..num_of_h_tiles {
-            commands.spawn()
-            .insert_bundle(SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(tile_size),
-                    color: if (v + h) % 2 == 0 { Color::DARK_GRAY } else { Color::BLACK },
+            if TILEMAP[v][h] == 1 { 
+                commands.spawn()
+                .insert_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(tile_size),
+                        color: if (v + h) % 2 == 0 { Color::DARK_GRAY } else { Color::BLACK },
+                        ..default()
+                    },
+                    transform: Transform::from_translation(current_pos),
                     ..default()
-                },
-                transform: Transform::from_translation(current_pos),
-                ..default()
-            })
-            .insert(StaticBody {
-                shape: Rectangle::new().with_size(tile_size),
-            });
+                })
+                .insert(StaticBody {
+                    shape: Rectangle::new().with_size(tile_size),
+                });
+            }
+
 
             current_pos.x += tile_size.x;
         }
 
         current_pos.x = (-window.width() + tile_size.x) / 2.0;
-        current_pos.y += tile_size.y;
+        current_pos.y -= tile_size.y;
     }
 }
 
@@ -99,6 +120,25 @@ fn keyboard_input(
 		if keyboard.just_pressed(KeyCode::Space) {
 			vel.y = JUMP_STRENGTTH;
 		}
+    }
+}
+
+fn ray_look_at_mouse(
+    mut rays: Query<(&mut Ray, &Transform), With<Player>>,
+    windows: Res<Windows>,
+) {
+    let window = windows.get_primary().unwrap();
+
+    match window.cursor_position() {
+        Some(mut pos) => {
+            pos.x -= window.width() / 2.0;
+            pos.y -= window.height() / 2.0;
+            for (mut r, trans) in rays.iter_mut() {
+                r.direction.x = pos.x - trans.translation.x;
+                r.direction.y = pos.y - trans.translation.y;
+            }
+        },
+        None => return,
     }
 }
 
