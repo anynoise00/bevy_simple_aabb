@@ -128,6 +128,8 @@ impl Aabb {
     }
 
     pub fn sweep_test(self, other: Aabb, motion: Vec2) -> Option<Hit> {
+        if motion == Vec2::ZERO { return None };
+
         let minkowski = other.minkowski_diff(self);
         let ray = Raycast::new(motion, Vec2::ZERO);
 

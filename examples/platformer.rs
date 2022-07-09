@@ -36,7 +36,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn spawn_players(mut commands: Commands) {
-	let player_size = Vec2::new(40.0, 60.0);
+	let player_size = Vec2::new(48.0, 64.0);
 
 	commands.spawn()
 		.insert_bundle(SpriteBundle {
@@ -45,6 +45,7 @@ fn spawn_players(mut commands: Commands) {
                 color: Color::Rgba { red: 0.69, green: 0.79, blue: 0.61, alpha: 1.0 },
                 ..default()
             },
+            transform: Transform::from_translation(Vec3::new(100.0, -90.0, 0.0)),
             ..default()
 		})
         .insert(KinematicBody {
@@ -112,7 +113,7 @@ fn keyboard_input(
 	keyboard: Res<Input<KeyCode>>,
     mut players: Query<&mut Velocity, With<Player>>,
 ) {
-    const SPEED: f32 = 1.0;
+    const SPEED: f32 = 6.0;
     const JUMP_STRENGTTH: f32 = 10.0;
 
 	for mut vel in players.iter_mut() {
@@ -120,12 +121,8 @@ fn keyboard_input(
 		if keyboard.pressed(KeyCode::D) { vel.x += SPEED; }
 		if keyboard.pressed(KeyCode::A) { vel.x -= SPEED; }
 
-        vel.y = 0.0;
-		if keyboard.pressed(KeyCode::W) { vel.y += SPEED; }
-		if keyboard.pressed(KeyCode::S) { vel.y -= SPEED; }
-
 		if keyboard.just_pressed(KeyCode::Space) {
-			vel.y = JUMP_STRENGTTH;
+            vel.y = JUMP_STRENGTTH;
 		}
     }
 }
@@ -150,7 +147,6 @@ fn ray_look_at_mouse(
 }
 
 fn gravity(mut q: Query<&mut Velocity>) {
-    return;
 	for mut vel in q.iter_mut() {
 		vel.y += -0.5;
 		vel.y = vel.y.max(-16.0)

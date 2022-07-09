@@ -3,8 +3,12 @@ pub mod raycast;
 
 use bevy::prelude::*;
 use crate::components::*;
+use self::utils::slide_motion;
+
 pub use aabb::*;
 pub use raycast::*;
+
+const DIAGONAL_SOLVE: Vec2 = Vec2::X;
 
 pub struct BroadEvent {
     pub entity: Entity,
@@ -16,13 +20,18 @@ pub struct BroadEvent {
 pub struct NarrowEvent {
     pub entity: Entity,
 
-    pub kinematics: Vec<(Entity, f32)>,
-    pub statics: Vec<(Entity, f32)>,
+    pub kinematics: Vec<Collisions>,
+    pub statics: Vec<Collisions>,
 }
 
 pub struct MoveEvent {
     pub entity: Entity,
     pub position: Vec2,
+}
+
+pub struct Collisions {
+    pub time: f32,
+    pub entities: Vec<Entity>,
 }
 
 pub fn broadphase(
@@ -66,7 +75,7 @@ pub fn narrowphase(
         };
         let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
 
-        let mut sta_col: Vec<(Entity, f32)> = Vec::new();
+        let mut sta_col: Vec<Collisions> = Vec::new();
         for b_ent in ev.statics.iter() {
             let b_ent = *b_ent;
 
@@ -77,14 +86,18 @@ pub fn narrowphase(
             let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
             match a_box.sweep_test(b_box, a_body.motion) {
-                Some(hit) => sta_col.push((b_ent, hit.time)),
+                Some(hit) => {
+                    match sta_col.iter_mut().find(|col| col.time == hit.time) {
+                        Some(col) => col.entities.push(b_ent),
+                        None => sta_col.push(Collisions { time: hit.time, entities: vec![b_ent] }),
+                    }
+                    
+                },
                 None => continue,
             };
         }
 
-        sta_col.sort_by(|a, b| {
-            a.1.partial_cmp(&b.1).unwrap()
-        });
+        sta_col.sort_by(|a, b| (a.time).partial_cmp(&b.time).unwrap());
 
         ev_narrow.send(NarrowEvent {
             entity: ev.entity,
@@ -109,19 +122,34 @@ pub fn solve(
         let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
         let mut a_motion = a_body.motion;
 
-        for (b_ent, _) in ev.statics.iter() {
-            let (b_body, b_trans) = match statics.get(*b_ent) {
-                Ok((body, trans)) => (body, trans),
-                Err(_) => continue,
-            };
-            let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+        for col in ev.statics.iter() {
+            for b_ent in col.entities.iter() {
+                let (b_body, b_trans) = match statics.get(*b_ent) {
+                    Ok((body, trans)) => (body, trans),
+                    Err(_) => continue,
+                };
+                let mut b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+                let mut is_diagonal = false;
+    
+                if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
+                match a_box.sweep_test(b_box, a_motion) {
+                    Some(hit) => {
+                        if hit.normal == Vec2::ZERO && col.entities.len() <= 1 {
+                            is_diagonal = true;
+                        }
+                        slide_motion(&mut a_motion, hit.normal, hit.time);
+                    },
+                    None => continue,
+                }
 
-            if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
-            match a_box.sweep_test(b_box, a_motion) {
-                Some(hit) => {
-                    a_motion += a_motion.abs() * hit.normal * (1.0 - hit.time);
-                },
-                None => continue,
+                if is_diagonal {
+                    b_box.extents += a_box.extents * DIAGONAL_SOLVE;
+
+                    match a_box.sweep_test(b_box, a_motion) {
+                        Some(hit) => slide_motion(&mut a_motion, hit.normal, hit.time),
+                        None => continue,
+                    }
+                }
             }
         }
 
@@ -170,5 +198,15 @@ pub fn raycasts(
             }
         }
 
+    }
+}
+
+pub mod utils {
+    use bevy::prelude::Vec2;
+
+    pub const EPSILON: f32 = 0.0000001;
+
+    pub fn slide_motion(motion: &mut Vec2, normal: Vec2, time: f32) {
+        *motion += motion.abs() * normal * (1.0 - time - EPSILON)
     }
 }
