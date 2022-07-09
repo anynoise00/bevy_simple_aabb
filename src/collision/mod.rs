@@ -1,12 +1,11 @@
 pub mod aabb;
 pub mod raycast;
 
-use std::cmp::Ordering;
+use bevy::prelude::*;
+use crate::components::*;
 
 pub use aabb::*;
 pub use raycast::*;
-use bevy::prelude::*;
-use crate::components::*;
 
 pub struct BroadEvent {
     pub entity: Entity,
@@ -18,13 +17,19 @@ pub struct BroadEvent {
 pub struct NarrowEvent {
     pub entity: Entity,
 
-    pub kinematics: Vec<(Entity, f32, f32)>,
-    pub statics: Vec<(Entity, f32, f32)>,
+    pub kinematics: Vec<Collisions>,
+    pub statics: Vec<Collisions>,
 }
 
 pub struct MoveEvent {
     pub entity: Entity,
     pub position: Vec2,
+}
+
+#[derive(Debug)]
+pub struct Collisions {
+    pub time: f32,
+    pub entities: Vec<Entity>,
 }
 
 pub fn broadphase(
@@ -68,7 +73,7 @@ pub fn narrowphase(
         };
         let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
 
-        let mut sta_col: Vec<(Entity, f32, f32)> = Vec::new();
+        let mut sta_col: Vec<Collisions> = Vec::new();
         for b_ent in ev.statics.iter() {
             let b_ent = *b_ent;
 
@@ -80,24 +85,29 @@ pub fn narrowphase(
 
             match a_box.sweep_test(b_box, a_body.motion) {
                 Some(hit) => {
-                    if hit.near_time <= 1.0 { sta_col.push((b_ent, hit.near_time, hit.far_time)) };
+                    let time = (hit.time.x).max(hit.time.y);
+                    match sta_col.iter_mut().find(|col| col.time == time) {
+                        Some(col) => col.entities.push(b_ent), 
+                        None => sta_col.push(Collisions {
+                            time,
+                            entities: vec![b_ent],
+                        })
+                    }
                 },
                 None => continue,
             };
         }
 
+        println!("{:?}", sta_col);
         sta_col.sort_by(|a, b| {
-            let near = a.1.partial_cmp(&b.1).unwrap();
-            if near == Ordering::Equal {
-                let far = a.2.partial_cmp(&b.2).unwrap();
-                return far
-            }
-            near
+            (a.time).partial_cmp(&b.time).unwrap()
         });
+        println!("{:?}", sta_col);
+        println!();
 
         ev_narrow.send(NarrowEvent {
             entity: ev.entity,
-            kinematics: Vec::new(),
+            kinematics: default(),
             statics: sta_col,
         })
     }
@@ -130,7 +140,7 @@ pub fn solve(
             if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
             match a_box.sweep_test(b_box, a_motion) {
                 Some(hit) => {
-                    a_motion += a_motion.abs() * hit.normal * (1.0 - hit.near_time);
+                    a_motion += a_motion.abs() * hit.normal * (1.0 - hit.time);
                 },
                 None => continue,
             }

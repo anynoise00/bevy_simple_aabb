@@ -71,19 +71,12 @@ impl Raycast {
         let t_hit_near = (t_near.x).max(t_near.y);
         let t_hit_far = (t_far.x).min(t_far.y);
 
-        if t_hit_near >= 1.0 || t_hit_far <= 0.0 {
+        if t_hit_near > 1.0 || t_hit_far <= 0.0 {
             return None;
         }
 
-        hit.near_time = t_hit_near.max(0.0);
-        hit.far_time = t_hit_far;
+        hit.time = t_near;
         hit.normal = -sign;
-        
-        if t_near.x > t_near.y {
-            hit.normal.y = 0.0;
-        } else {
-            hit.normal.x = 0.0;
-        }
 
         Some(hit)
     }
@@ -91,8 +84,7 @@ impl Raycast {
 
 #[derive(Copy, Clone, Default)]
 pub struct Hit {
-    pub near_time: f32,
-    pub far_time: f32,
+    pub time: Vec2,
     pub normal: Vec2,
 }
 
@@ -108,7 +100,7 @@ mod tests {
 
         let hit = ray.intersect_aabb(a).unwrap();
 
-        assert_eq!(hit.near_time, 0.5);
+        assert_eq!(hit.time, 0.5);
     }
 
     #[test]
