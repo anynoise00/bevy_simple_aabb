@@ -7,9 +7,9 @@ This plugin is not yet in a usable state. Please take a look at the other option
 ## Features
 - [X] AABB Collision detection and resolution
 - [X] Bodies (Movable and Static)
-- [ ] Tunneling prevention
+- [X] Tunneling prevention
 - [ ] Raycasting
-- [ ] Contact report
+- [ ] Contacts report
 - [ ] Trigger areas
 - [ ] Layers and masks
 - [ ] QuadTrees

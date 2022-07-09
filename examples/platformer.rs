@@ -14,8 +14,8 @@ struct Velocity {
 fn main() {
     App::new()
 		.add_plugins(DefaultPlugins)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        //.add_plugin(LogDiagnosticsPlugin::default())
+        //.add_plugin(FrameTimeDiagnosticsPlugin::default())
 
 		.add_plugin(PhysicsPlugin)
 
@@ -112,13 +112,17 @@ fn keyboard_input(
 	keyboard: Res<Input<KeyCode>>,
     mut players: Query<&mut Velocity, With<Player>>,
 ) {
-    const SPEED: f32 = 7.0;
+    const SPEED: f32 = 1.0;
     const JUMP_STRENGTTH: f32 = 10.0;
 
 	for mut vel in players.iter_mut() {
 		vel.x = 0.0;
 		if keyboard.pressed(KeyCode::D) { vel.x += SPEED; }
 		if keyboard.pressed(KeyCode::A) { vel.x -= SPEED; }
+
+        vel.y = 0.0;
+		if keyboard.pressed(KeyCode::W) { vel.y += SPEED; }
+		if keyboard.pressed(KeyCode::S) { vel.y -= SPEED; }
 
 		if keyboard.just_pressed(KeyCode::Space) {
 			vel.y = JUMP_STRENGTTH;
@@ -146,6 +150,7 @@ fn ray_look_at_mouse(
 }
 
 fn gravity(mut q: Query<&mut Velocity>) {
+    return;
 	for mut vel in q.iter_mut() {
 		vel.y += -0.5;
 		vel.y = vel.y.max(-16.0)
