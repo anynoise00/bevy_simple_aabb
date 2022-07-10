@@ -1,9 +1,13 @@
 use bevy::prelude::*;
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_simple_aabb::prelude::*;
 
+#[derive(Component, Default)]
+struct Player {
+    is_on_ground: bool,
+}
+
 #[derive(Component)]
-struct Player;
+struct GroundRay;
 
 #[derive(Component, Default)]
 struct Velocity {
@@ -14,8 +18,6 @@ struct Velocity {
 fn main() {
     App::new()
 		.add_plugins(DefaultPlugins)
-        //.add_plugin(LogDiagnosticsPlugin::default())
-        //.add_plugin(FrameTimeDiagnosticsPlugin::default())
 
 		.add_plugin(PhysicsPlugin)
 
@@ -23,8 +25,8 @@ fn main() {
         .add_startup_system(spawn_players)
         .add_startup_system(spawn_tiles)
 
+        .add_system(check_player_rays.before(keyboard_input))
 		.add_system(keyboard_input)
-        .add_system(ray_look_at_mouse)
 		.add_system(gravity.after(keyboard_input))
 		.add_system(move_players.after(keyboard_input))
 
@@ -45,15 +47,32 @@ fn spawn_players(mut commands: Commands) {
                 color: Color::Rgba { red: 0.69, green: 0.79, blue: 0.61, alpha: 1.0 },
                 ..default()
             },
-            transform: Transform::from_translation(Vec3::new(100.0, -90.0, 0.0)),
             ..default()
 		})
         .insert(KinematicBody {
             shape: Rectangle::new().with_size(player_size),
             ..default()
         })
-        .insert(Player)
-		.insert(Velocity::default());
+        .insert(Player::default())
+		.insert(Velocity::default())
+        .with_children(|parent| {
+            parent.spawn_bundle(RaycastBundle {
+                raycast: Raycast::new()
+                    .with_direction(Vec2::Y * -4.0)
+                    .with_offset(Vec2::new((player_size.x - 1.0) / 2.0, -player_size.y / 2.0)),
+                ..default()
+            })
+            .insert(GroundRay);
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(RaycastBundle {
+                raycast: Raycast::new()
+                    .with_direction(Vec2::Y * -4.0)
+                    .with_offset(Vec2::new(-(player_size.x - 1.0) / 2.0, -player_size.y / 2.0)),
+                ..default()
+            })
+            .insert(GroundRay);
+        });
 }
 
 fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
@@ -109,40 +128,37 @@ fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
     }
 }
 
+fn check_player_rays(
+    mut players: Query<(&mut Player, &Children)>,
+    ground_rays: Query<&Raycast, With<GroundRay>>
+) {
+    for (mut player, children) in players.iter_mut() {
+        player.is_on_ground = false;
+        
+        for &child in children.iter() {
+            if let Ok(ray) = ground_rays.get(child) {
+                player.is_on_ground = player.is_on_ground || ray.is_colliding();
+            };
+        }
+        println!();
+    }
+}
+
 fn keyboard_input(
 	keyboard: Res<Input<KeyCode>>,
-    mut players: Query<&mut Velocity, With<Player>>,
+    mut players: Query<(&Player, &mut Velocity)>,
 ) {
     const SPEED: f32 = 6.0;
     const JUMP_STRENGTTH: f32 = 10.0;
 
-	for mut vel in players.iter_mut() {
+	for (player, mut vel) in players.iter_mut() {
 		vel.x = 0.0;
 		if keyboard.pressed(KeyCode::D) { vel.x += SPEED; }
 		if keyboard.pressed(KeyCode::A) { vel.x -= SPEED; }
 
-		if keyboard.just_pressed(KeyCode::Space) {
+		if keyboard.just_pressed(KeyCode::Space) && player.is_on_ground {
             vel.y = JUMP_STRENGTTH;
 		}
-    }
-}
-
-fn ray_look_at_mouse(
-    mut rays: Query<(&mut Ray, &Transform), With<Player>>,
-    windows: Res<Windows>,
-) {
-    let window = windows.get_primary().unwrap();
-
-    match window.cursor_position() {
-        Some(mut pos) => {
-            pos.x -= window.width() / 2.0;
-            pos.y -= window.height() / 2.0;
-            for (mut r, trans) in rays.iter_mut() {
-                r.direction.x = pos.x - trans.translation.x;
-                r.direction.y = pos.y - trans.translation.y;
-            }
-        },
-        None => return,
     }
 }
 

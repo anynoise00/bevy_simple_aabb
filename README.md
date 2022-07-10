@@ -8,7 +8,7 @@ This plugin is not yet in a usable state. Please take a look at the other option
 - [X] AABB Collision detection and resolution
 - [X] Bodies (Movable and Static)
 - [X] Tunneling prevention
-- [ ] Raycasting
+- [X] Raycasting
 - [ ] Contacts report
 - [ ] Trigger areas
 - [ ] Layers and masks

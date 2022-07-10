@@ -1,15 +1,23 @@
-use bevy::prelude::{ Component, Entity, Transform, Vec2 };
+use bevy::{prelude::{ Bundle, Component, Entity, GlobalTransform, Vec2 }, transform::TransformBundle};
 use crate::collision::Aabb;
 
+#[derive(Bundle, Default)]
+pub struct RaycastBundle {
+    pub raycast: Raycast,
+
+    #[bundle]
+    pub transform_bundle: TransformBundle,
+}
+
 #[derive(Component, Default)]
-pub struct Ray {
+pub struct Raycast {
     pub direction: Vec2,
     pub offset: Vec2,
 
     pub(crate) hits: Vec<(Entity, Hit)>,
 }
 
-impl Ray {
+impl Raycast {
     pub fn new() -> Self {
         Self::default()
     }
@@ -34,12 +42,12 @@ impl Ray {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Raycast {
+pub struct Ray {
     pub direction: Vec2,
     pub position: Vec2,
 }
 
-impl Raycast {
+impl Ray {
     pub fn new(direction: Vec2, position: Vec2) -> Self {
         Self {
             direction,
@@ -47,10 +55,10 @@ impl Raycast {
         }
     }
 
-    pub fn from_ray(raycast: &Ray, transform: &Transform) -> Self {
+    pub fn from_ray(raycast: &Raycast, transform: &GlobalTransform) -> Self {
         Self::new(
             raycast.direction,
-            Vec2::new(transform.translation.x, transform.translation.y) + raycast.offset
+            Vec2::new(transform.translation.x, transform.translation.y) + raycast.offset,
         )
     }
 
@@ -95,13 +103,13 @@ pub struct Hit {
 
 #[cfg(test)]
 mod tests {
-    use crate::collision::{ Aabb, Raycast };
+    use crate::collision::{ Aabb, Ray };
     use bevy::math::Vec2;
 
     #[test]
     fn test_time() {
         let a = Aabb::new(Vec2::splat(2.0), Vec2::new(-3.0, 0.0));
-        let ray = Raycast::new(Vec2::new(-2.0, 0.0), Vec2::ZERO);
+        let ray = Ray::new(Vec2::new(-2.0, 0.0), Vec2::ZERO);
 
         let hit = ray.intersect_aabb(a).unwrap();
 
@@ -111,7 +119,7 @@ mod tests {
     #[test]
     fn test_normal() {
         let a = Aabb::new(Vec2::splat(2.0), Vec2::new(-3.0, 0.0));
-        let ray = Raycast::new(Vec2::new(-2.0, 0.0), Vec2::ZERO);
+        let ray = Ray::new(Vec2::new(-2.0, 0.0), Vec2::ZERO);
 
         let hit = ray.intersect_aabb(a).unwrap();
         assert_eq!(hit.normal, Vec2::new(1.0, 0.0));

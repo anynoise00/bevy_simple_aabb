@@ -3,7 +3,7 @@ pub mod raycast;
 
 use bevy::prelude::*;
 use crate::components::*;
-use self::utils::slide_motion;
+use crate::utils::slide_motion;
 
 pub use aabb::*;
 pub use raycast::*;
@@ -76,9 +76,7 @@ pub fn narrowphase(
         let a_box = Aabb::from_rectangle(a_body.shape, a_trans);
 
         let mut sta_col: Vec<Collisions> = Vec::new();
-        for b_ent in ev.statics.iter() {
-            let b_ent = *b_ent;
-
+        for &b_ent in ev.statics.iter() {
             let (b_body, b_trans) = match statics.get(b_ent) {
                 Ok((body, trans)) => (body, trans),
                 Err(_) => continue,
@@ -123,8 +121,8 @@ pub fn solve(
         let mut a_motion = a_body.motion;
 
         for col in ev.statics.iter() {
-            for b_ent in col.entities.iter() {
-                let (b_body, b_trans) = match statics.get(*b_ent) {
+            for &b_ent in col.entities.iter() {
+                let (b_body, b_trans) = match statics.get(b_ent) {
                     Ok((body, trans)) => (body, trans),
                     Err(_) => continue,
                 };
@@ -179,17 +177,17 @@ pub fn move_entities(
 }
 
 pub fn raycasts(
-    mut rays: Query<(&mut Ray, &Transform)>,
+    mut rays: Query<(&mut Raycast, &GlobalTransform)>,
     statics: Query<(Entity, &StaticBody, &Transform)>,
 ) {
     for (mut a_ray, a_trans) in rays.iter_mut() {
-        let a_box = Aabb::from_ray(&a_ray, a_trans);
-        let raycast = Raycast::from_ray(&a_ray, a_trans);
+        let raycast = Ray::from_ray(&a_ray, a_trans);
         a_ray.hits.clear();
-
+        
+        let a_box = Aabb::from_ray(&a_ray, a_trans);
         for (b_ent, b_body, b_trans) in statics.iter() {
             let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
-
+            
             if a_box.is_overlapping(b_box) {
                 match raycast.intersect_aabb(b_box) {
                     Some(hit) => a_ray.hits.push((b_ent, hit)),
@@ -198,15 +196,5 @@ pub fn raycasts(
             }
         }
 
-    }
-}
-
-pub mod utils {
-    use bevy::prelude::Vec2;
-
-    pub const EPSILON: f32 = 0.0000001;
-
-    pub fn slide_motion(motion: &mut Vec2, normal: Vec2, time: f32) {
-        *motion += motion.abs() * normal * (1.0 - time - EPSILON)
     }
 }

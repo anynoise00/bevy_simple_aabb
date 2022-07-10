@@ -1,5 +1,5 @@
-use bevy::prelude::{ Vec2, Transform };
-use crate::{components::Rectangle, collision::{ Hit, Ray, Raycast }};
+use bevy::prelude::{ Vec2, Transform, GlobalTransform };
+use crate::{components::Rectangle, collision::{ Hit, Raycast, Ray }, utils::EPSILON };
 
 #[derive(Copy, Clone, Debug)]
 pub struct Aabb {
@@ -10,7 +10,7 @@ pub struct Aabb {
 impl Aabb {
     pub fn new(extents: Vec2, position: Vec2) -> Self {
         Self {
-            extents: extents.abs(),
+            extents: extents,
             position,
         }
     }
@@ -19,9 +19,16 @@ impl Aabb {
         Self::new(rectangle.size() / 2.0, Vec2::new(transform.translation.x, transform.translation.y))
     }
 
-    pub fn from_ray(ray: &Ray, transform: &Transform) -> Self {
+    pub fn from_ray(ray: &Raycast, transform: &GlobalTransform) -> Self {
         let half_dir = ray.direction / 2.0;
-        Self::new(half_dir, Vec2::new(transform.translation.x, transform.translation.y) + half_dir)
+        Self::new(
+            // temporary solution to ray not detecting when it checks a gap
+            // TODO remove this when QuadTree is implemented
+            half_dir.abs().max(Vec2::splat(EPSILON)),
+            Vec2::new(
+                transform.translation.x, transform.translation.y
+            ) + half_dir + ray.offset,
+        )
     }
 
     pub fn minkowski_diff(mut self, other: Aabb) -> Self {
@@ -131,7 +138,7 @@ impl Aabb {
         if motion == Vec2::ZERO { return None };
 
         let minkowski = other.minkowski_diff(self);
-        let ray = Raycast::new(motion, Vec2::ZERO);
+        let ray = Ray::new(motion, Vec2::ZERO);
 
         ray.intersect_aabb(minkowski)
     }
