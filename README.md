@@ -9,7 +9,7 @@ This plugin is not yet in a usable state. Please take a look at the other option
 - [X] Bodies (Movable and Static)
 - [X] Tunneling prevention
 - [X] Raycasting
-- [ ] Contacts report
+- [X] Contacts report
 - [ ] Trigger areas
 - [ ] Layers and masks
 - [ ] QuadTrees
