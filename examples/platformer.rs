@@ -26,6 +26,7 @@ fn main() {
         .add_startup_system(spawn_tiles)
 
         .add_system(check_player_rays.before(keyboard_input))
+        .add_system(debug_player_contacts)
 		.add_system(keyboard_input)
 		.add_system(gravity.after(keyboard_input))
 		.add_system(move_players.after(keyboard_input))
@@ -49,10 +50,7 @@ fn spawn_players(mut commands: Commands) {
             },
             ..default()
 		})
-        .insert(KinematicBody {
-            shape: Rectangle::new().with_size(player_size),
-            ..default()
-        })
+        .insert(KinematicBody::new(Rectangle::new().with_size(player_size)))
         .insert(Player::default())
 		.insert(Velocity::default())
         .with_children(|parent| {
@@ -114,9 +112,7 @@ fn spawn_tiles(mut commands: Commands, windows: Res<Windows>) {
                     transform: Transform::from_translation(current_pos),
                     ..default()
                 })
-                .insert(StaticBody {
-                    shape: Rectangle::new().with_size(tile_size),
-                });
+                .insert(StaticBody::new(Rectangle::new().with_size(tile_size)));
             }
 
 
@@ -139,6 +135,16 @@ fn check_player_rays(
             if let Ok(ray) = ground_rays.get(child) {
                 player.is_on_ground = player.is_on_ground || ray.is_colliding();
             };
+        }
+    }
+}
+
+fn debug_player_contacts(
+    players: Query<&KinematicBody, With<Player>>,
+) {
+    for player in players.iter() {
+        for c in player.contacts() {
+            println!("Player is in contact with entity {:?} with normal {}", c.entity(), c.normal());
         }
         println!();
     }

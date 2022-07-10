@@ -1,4 +1,5 @@
 pub mod aabb;
+pub mod contact;
 pub mod raycast;
 
 use bevy::prelude::*;
@@ -6,6 +7,7 @@ use crate::components::*;
 use crate::utils::slide_motion;
 
 pub use aabb::*;
+pub use contact::*;
 pub use raycast::*;
 
 const DIAGONAL_SOLVE: Vec2 = Vec2::X;
@@ -105,6 +107,14 @@ pub fn narrowphase(
     }
 }
 
+pub fn clear_contacts(
+    mut kinematics: Query<&mut KinematicBody>,
+) {
+    for mut kin in kinematics.iter_mut() {
+        kin.contacts.clear();
+    }
+}
+
 pub fn solve(
     mut kinematics: Query<(&mut KinematicBody, &Transform)>,
     statics: Query<(&StaticBody, &Transform)>,
@@ -113,7 +123,7 @@ pub fn solve(
     mut ev_move: EventWriter<MoveEvent>,
 ) {
     for ev in ev_narrow.iter() {
-        let (a_body, a_trans) = match kinematics.get_mut(ev.entity) {
+        let (mut a_body, a_trans) = match kinematics.get_mut(ev.entity) {
             Ok((body, trans)) => (body, trans),
             Err(_) => continue,
         };
@@ -127,15 +137,21 @@ pub fn solve(
                     Err(_) => continue,
                 };
                 let mut b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+
+                let has_collided;
+                let mut contact_normal;
+                
                 let mut is_diagonal = false;
-    
-                if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
                 match a_box.sweep_test(b_box, a_motion) {
                     Some(hit) => {
+                        slide_motion(&mut a_motion, hit.normal, hit.time);
+                        
                         if hit.normal == Vec2::ZERO && col.entities.len() <= 1 {
                             is_diagonal = true;
                         }
-                        slide_motion(&mut a_motion, hit.normal, hit.time);
+                        
+                        has_collided = true;
+                        contact_normal = hit.normal;
                     },
                     None => continue,
                 }
@@ -144,9 +160,19 @@ pub fn solve(
                     b_box.extents += a_box.extents * DIAGONAL_SOLVE;
 
                     match a_box.sweep_test(b_box, a_motion) {
-                        Some(hit) => slide_motion(&mut a_motion, hit.normal, hit.time),
+                        Some(hit) => {
+                            slide_motion(&mut a_motion, hit.normal, hit.time);
+                            contact_normal = hit.normal;
+                        },
                         None => continue,
                     }
+                }
+
+                if has_collided && contact_normal != Vec2::ZERO {
+                    a_body.contacts.push(Contact {
+                        entity: b_ent,
+                        normal: contact_normal,
+                    })
                 }
             }
         }

@@ -17,4 +17,4 @@ This plugin is not yet in a usable state. Please take a look at the other option
 ## Versions
 bevy | bevy_simple_collision
 --- | ---
-0.7.0 | 0.2.0
+0.7.0 | 0.3.0
