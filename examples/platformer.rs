@@ -26,9 +26,9 @@ fn main() {
         .add_startup_system(spawn_tiles)
 
         .add_system(check_player_rays.before(keyboard_input))
-        .add_system(debug_player_contacts)
 		.add_system(keyboard_input)
 		.add_system(gravity.after(keyboard_input))
+        .add_system(apply_player_contacts.after(gravity))
 		.add_system(move_players.after(keyboard_input))
 
 		.run();
@@ -139,14 +139,15 @@ fn check_player_rays(
     }
 }
 
-fn debug_player_contacts(
-    players: Query<&KinematicBody, With<Player>>,
+fn apply_player_contacts(
+    mut players: Query<(&KinematicBody, &mut Velocity), With<Player>>,
 ) {
-    for player in players.iter() {
+    for (player, mut vel) in players.iter_mut() {
         for c in player.contacts() {
             println!("Player is in contact with entity {:?} with normal {}", c.entity(), c.normal());
+            vel.x *= c.normal().y.abs();
+            vel.y *= c.normal().x.abs();
         }
-        println!();
     }
 }
 

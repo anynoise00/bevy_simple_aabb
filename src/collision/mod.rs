@@ -137,6 +137,8 @@ pub fn solve(
                     Err(_) => continue,
                 };
                 let mut b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+                
+                if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
 
                 let has_collided;
                 let mut contact_normal;
