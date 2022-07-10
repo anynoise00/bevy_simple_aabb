@@ -1,7 +1,9 @@
+pub mod raycast;
 pub mod rectangle;
 
 use bevy::prelude::{ Component, Vec2 };
 use crate::collision::Contact;
+pub use raycast::*;
 pub use rectangle::*;
 
 #[derive(Component, Default)]
@@ -22,7 +24,7 @@ impl KinematicBody {
         }
     }
 
-    pub fn contacts(&self) -> Vec<Contact> {
+    pub fn get_contacts(&self) -> Vec<Contact> {
         self.contacts.clone()
     }
 }

@@ -143,7 +143,7 @@ fn apply_player_contacts(
     mut players: Query<(&KinematicBody, &mut Velocity), With<Player>>,
 ) {
     for (player, mut vel) in players.iter_mut() {
-        for c in player.contacts() {
+        for c in player.get_contacts() {
             println!("Player is in contact with entity {:?} with normal {}", c.entity(), c.normal());
             vel.x *= c.normal().y.abs();
             vel.y *= c.normal().x.abs();

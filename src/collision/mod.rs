@@ -1,6 +1,6 @@
 pub mod aabb;
 pub mod contact;
-pub mod raycast;
+pub mod ray;
 
 use bevy::prelude::*;
 use crate::components::*;
@@ -8,7 +8,7 @@ use crate::utils::slide_motion;
 
 pub use aabb::*;
 pub use contact::*;
-pub use raycast::*;
+pub use ray::*;
 
 const DIAGONAL_SOLVE: Vec2 = Vec2::X;
 
@@ -37,8 +37,8 @@ pub struct Collisions {
 }
 
 pub fn broadphase(
-    kinematics: Query<(Entity, &KinematicBody, &Transform)>,
-    statics: Query<(Entity, &StaticBody, &Transform)>,
+    kinematics: Query<(Entity, &KinematicBody, &GlobalTransform)>,
+    statics: Query<(Entity, &StaticBody, &GlobalTransform)>,
 
     mut ev_broad: EventWriter<BroadEvent>,
 ) {
@@ -50,7 +50,7 @@ pub fn broadphase(
         for (b_ent, b_body, b_trans) in statics.iter() {
             let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
-            if a_box.is_overlapping(b_box) {
+            if a_box.is_overlapping(&b_box) {
                 sta.push(b_ent);
             }
         }
@@ -64,8 +64,8 @@ pub fn broadphase(
 }
 
 pub fn narrowphase(
-    kinematics: Query<(&KinematicBody, &Transform)>,
-    statics: Query<(&StaticBody, &Transform)>,
+    kinematics: Query<(&KinematicBody, &GlobalTransform)>,
+    statics: Query<(&StaticBody, &GlobalTransform)>,
 
     mut ev_broad: EventReader<BroadEvent>,
     mut ev_narrow: EventWriter<NarrowEvent>,
@@ -85,7 +85,7 @@ pub fn narrowphase(
             };
             let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
 
-            match a_box.sweep_test(b_box, a_body.motion) {
+            match a_box.sweep_test(&b_box, a_body.motion) {
                 Some(hit) => {
                     match sta_col.iter_mut().find(|col| col.time == hit.time) {
                         Some(col) => col.entities.push(b_ent),
@@ -116,8 +116,8 @@ pub fn clear_contacts(
 }
 
 pub fn solve(
-    mut kinematics: Query<(&mut KinematicBody, &Transform)>,
-    statics: Query<(&StaticBody, &Transform)>,
+    mut kinematics: Query<(&mut KinematicBody, &GlobalTransform)>,
+    statics: Query<(&StaticBody, &GlobalTransform)>,
 
     mut ev_narrow: EventReader<NarrowEvent>,
     mut ev_move: EventWriter<MoveEvent>,
@@ -136,15 +136,15 @@ pub fn solve(
                     Ok((body, trans)) => (body, trans),
                     Err(_) => continue,
                 };
-                let mut b_box = Aabb::from_rectangle(b_body.shape, b_trans);
+                let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
                 
-                if !a_box.get_broad(a_motion).is_overlapping(b_box) { continue; }
+                if !a_box.get_broad(a_motion).is_overlapping(&b_box) { continue; }
 
                 let has_collided;
                 let mut contact_normal;
                 
                 let mut is_diagonal = false;
-                match a_box.sweep_test(b_box, a_motion) {
+                match a_box.sweep_test(&b_box, a_motion) {
                     Some(hit) => {
                         slide_motion(&mut a_motion, hit.normal, hit.time);
                         
@@ -159,9 +159,12 @@ pub fn solve(
                 }
 
                 if is_diagonal {
-                    b_box.extents += a_box.extents * DIAGONAL_SOLVE;
+                    let ghost_box = Aabb::new(
+                        b_box.extents() + a_box.extents() * DIAGONAL_SOLVE,
+                        b_box.position(),
+                    );
 
-                    match a_box.sweep_test(b_box, a_motion) {
+                    match a_box.sweep_test(&ghost_box, a_motion) {
                         Some(hit) => {
                             slide_motion(&mut a_motion, hit.normal, hit.time);
                             contact_normal = hit.normal;
@@ -181,7 +184,7 @@ pub fn solve(
 
         ev_move.send(MoveEvent {
             entity: ev.entity,
-            position: a_box.position + a_motion,
+            position: a_box.position() + a_motion,
         })
     }
 }
@@ -206,7 +209,7 @@ pub fn move_entities(
 
 pub fn raycasts(
     mut rays: Query<(&mut Raycast, &GlobalTransform)>,
-    statics: Query<(Entity, &StaticBody, &Transform)>,
+    statics: Query<(Entity, &StaticBody, &GlobalTransform)>,
 ) {
     for (mut a_ray, a_trans) in rays.iter_mut() {
         let raycast = Ray::from_ray(&a_ray, a_trans);
@@ -216,7 +219,7 @@ pub fn raycasts(
         for (b_ent, b_body, b_trans) in statics.iter() {
             let b_box = Aabb::from_rectangle(b_body.shape, b_trans);
             
-            if a_box.is_overlapping(b_box) {
+            if a_box.is_overlapping(&b_box) {
                 match raycast.intersect_aabb(b_box) {
                     Some(hit) => a_ray.hits.push((b_ent, hit)),
                     None => continue,
