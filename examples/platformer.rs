@@ -162,8 +162,9 @@ fn keyboard_input(
     }
 }
 
-fn gravity(mut q: Query<&mut Velocity>) {
-	for mut vel in q.iter_mut() {
+fn gravity(mut q: Query<(&Player, &mut Velocity)>) {
+	for (player, mut vel) in q.iter_mut() {
+        if player.is_on_ground { continue; }
 		vel.y += -0.5;
 		vel.y = vel.y.max(-16.0)
 	}
