@@ -29,7 +29,7 @@ fn main() {
 		.add_system(keyboard_input)
 		.add_system(gravity.after(keyboard_input))
         .add_system(apply_player_contacts.after(gravity))
-		.add_system(move_players.after(keyboard_input))
+		.add_system(move_players.after(apply_player_contacts))
 
 		.run();
 }
